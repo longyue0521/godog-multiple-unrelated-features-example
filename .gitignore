@@ -19,3 +19,6 @@
 
 # Go workspace file
 go.work
+.idea
+e2e/reports/html/*
+e2e/reports/json/*
