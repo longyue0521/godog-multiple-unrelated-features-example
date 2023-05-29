@@ -8,22 +8,25 @@ import (
 	"path/filepath"
 )
 
+var (
+	reportPath = "e2e/reports/html"
+)
+
 func main() {
-	http.HandleFunc("/reports", func(w http.ResponseWriter, r *http.Request) {
-		name, err := findLatestHTMLReportName("e2e/reports/html")
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		if name == "" {
-			w.Write([]byte("there is no reports, please run e2e test first and try again"))
-			return
-		}
-		fmt.Println(name, err)
-		http.ServeFile(w, r, name)
-	})
-	log.Println("listen on :8080")
-	log.Println(http.ListenAndServe(":8080", nil))
+	http.HandleFunc("/reports", reportsHandler)
+	port := ":8080"
+	log.Printf("listen on %s...\n", port)
+	log.Fatal(http.ListenAndServe(port, nil))
+}
+
+func reportsHandler(w http.ResponseWriter, r *http.Request) {
+	name, err := findLatestHTMLReportName(reportPath)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("<b>There is no reports, please run e2e test first and try again</b>"))
+		return
+	}
+	http.ServeFile(w, r, name)
 }
 
 func findLatestHTMLReportName(path string) (string, error) {
@@ -40,6 +43,9 @@ func findLatestHTMLReportName(path string) (string, error) {
 	})
 	if err != nil {
 		return "", err
+	}
+	if name == "" {
+		return "", fmt.Errorf("no report found in %s", path)
 	}
 	return filepath.Join(path, name), nil
 }
