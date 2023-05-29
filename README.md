@@ -248,3 +248,11 @@ func thereAreUsers(arg1 *godog.Table) error {
 	return nil
 }
 ```
+
+
+using `@wip` on feature file, and `go test . -v --godog.tags=@wip` and `go test . -v --godog.tags=~@wip`
+
+@wip - run all scenarios with wip tag
+~@wip - exclude all scenarios with wip tag
+@wip && ~@new - run wip scenarios, but exclude new
+@wip,@undone - run wip or undone scenarios

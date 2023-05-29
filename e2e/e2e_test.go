@@ -50,15 +50,12 @@ func TestMain(m *testing.M) {
 
 func TestE2E(t *testing.T) {
 	t.Parallel()
-	// TODO 看看使用parallel后乱序生成的html报告是否可读
-	// TODO 如果可读,则考虑将format: progress,cucumber:%s.json, pretty在并行运行测试的表现不好,会乱序输出提示信息
-	// TODO 还要看看, 对于新定义的feature,在parallel模式下,是否会自动生成steps,生成的steps定义是否可读
-	// 一旦添加t.Parallel(),go框架会自行决定是否并发,命令行参数只能控制并发度--parallel=16
-
-	addGodogTestSuitesToE2ETestSuite(t, testSuiteGroup)
+	// When using the "pretty" format, step definitions are generated for undefined steps,
+	// but if t.Parallel() is used, the output content will be printed in an unordered manner to the terminal.
+	addGodogTestSuitesToTestSuiteGroup(t, testSuiteGroup)
 
 	for name, suite := range testSuiteGroup.TestSuites() {
-		suite := suite
+		name, suite := name, suite
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			options := defaultOptions
@@ -72,7 +69,7 @@ func TestE2E(t *testing.T) {
 	}
 }
 
-func addGodogTestSuitesToE2ETestSuite(t *testing.T, e *e2e.TestSuiteGroup) {
+func addGodogTestSuitesToTestSuiteGroup(t *testing.T, e *e2e.TestSuiteGroup) {
 	t.Helper()
 
 	require.NoError(t, e.AddTestSuite(users.GetAPI()))
