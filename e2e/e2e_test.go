@@ -2,23 +2,18 @@ package e2e_test
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/cucumber/godog"
 	"github.com/cucumber/godog/colors"
+	"github.com/longyue0521/godog-multiple-unrelated-features-example/e2e"
 	"github.com/longyue0521/godog-multiple-unrelated-features-example/e2e/features/godogs"
 	"github.com/longyue0521/godog-multiple-unrelated-features-example/e2e/features/users"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
-
-	"gitlab.com/rodrigoodhin/gocure/models"
-	"gitlab.com/rodrigoodhin/gocure/pkg/gocure"
-	"gitlab.com/rodrigoodhin/gocure/report/html"
 )
 
 var (
@@ -30,123 +25,42 @@ var (
 		Output: colors.Colored(os.Stdout),
 		Format: "progress",
 	}
+	testSuiteGroup = e2e.NewTestSuiteGroup(featFolderPath, jsonFolderPath, htmlFolderPath)
 )
 
 func init() {
 	godog.BindCommandLineFlags("godog.", &defaultOptions) // godog v0.11.0 and later
 }
 
-type E2ETestSuite struct {
-	suites map[string]*godog.TestSuite
-}
-
-func NewE2ETestSuite() *E2ETestSuite {
-	return &E2ETestSuite{suites: make(map[string]*godog.TestSuite)}
-}
-
-func (e *E2ETestSuite) AddTestSuite(suite *godog.TestSuite) error {
-	_, err := os.Stat(suite.Name)
-	if err != nil {
-		return fmt.Errorf("godog.TestSuite's name is wrong: %s", suite.Name)
-	}
-	rel, err := filepath.Rel(featFolderPath, suite.Name)
-	if err != nil {
-		return err
-	}
-	name := strings.TrimSuffix(rel, ".feature")
-	e.suites[name] = suite
-	return nil
-}
-
-func (e *E2ETestSuite) GodogTestSuites() map[string]*godog.TestSuite {
-	// TODO use values of --godog.Paths to filter
-	return e.suites
-}
-
 func TestMain(m *testing.M) {
-	// TODO 将m.Run()前面的重构为 E2ETestSuite.Setup/Before
-	parseCommandLineFlagsIntoDefaultOptions()
+	pflag.Parse()
 
-	if deleteReports(jsonFolderPath) != nil || deleteReports(htmlFolderPath) != nil {
+	if err := testSuiteGroup.Before(); err != nil {
 		os.Exit(101)
 	}
 
-	if createSubdirectories(jsonFolderPath, featFolderPath) != nil {
+	code := m.Run()
+
+	if err := testSuiteGroup.After(); err != nil {
 		os.Exit(102)
 	}
 
-	code := m.Run()
-	// // TODO 将m.Run()后面的重构为 E2ETestSuite.Teardown/After
-	if generateHTMLReport("report", jsonFolderPath, htmlFolderPath) != nil {
-		os.Exit(103)
-	}
-
 	os.Exit(code)
-
-}
-
-func parseCommandLineFlagsIntoDefaultOptions() {
-	pflag.Parse()
-}
-
-func deleteReports(root string) error {
-	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !d.IsDir() {
-			return os.Remove(path)
-		}
-		return nil
-	})
-}
-
-func createSubdirectories(dst string, src string) error {
-	// TODO 同步src与dst中的子目录,删除dst中与src不同的子目录
-	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !d.IsDir() {
-			return nil
-		}
-		relPath, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-		return os.MkdirAll(filepath.Join(dst, relPath), 0755)
-	})
-}
-
-func generateHTMLReport(name string, jsonFolderPath string, htmlFolderPath string) error {
-	HTML := gocure.HTML{
-		Config: html.Data{
-			Title:            name,
-			MergeFiles:       true,
-			InputFolderPath:  jsonFolderPath,
-			OutputHtmlFolder: htmlFolderPath,
-			Metadata: models.Metadata{
-				AppVersion:      "0.8.7",
-				TestEnvironment: "development",
-				Browser:         "Google Chrome",
-				Platform:        "Linux",
-				Parallel:        "Scenarios",
-				Executed:        "Remote",
-			},
-		},
-	}
-	return HTML.Generate()
 }
 
 func TestE2E(t *testing.T) {
+	t.Parallel()
+	// TODO 看看使用parallel后乱序生成的html报告是否可读
+	// TODO 如果可读,则考虑将format: progress,cucumber:%s.json, pretty在并行运行测试的表现不好,会乱序输出提示信息
+	// TODO 还要看看, 对于新定义的feature,在parallel模式下,是否会自动生成steps,生成的steps定义是否可读
+	// 一旦添加t.Parallel(),go框架会自行决定是否并发,命令行参数只能控制并发度--parallel=16
 
-	e := NewE2ETestSuite()
+	addGodogTestSuitesToE2ETestSuite(t, testSuiteGroup)
 
-	addGodogTestSuitesToE2ETestSuite(t, e)
-
-	for name, suite := range e.GodogTestSuites() {
-		// suite := suite
+	for name, suite := range testSuiteGroup.TestSuites() {
+		suite := suite
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			options := defaultOptions
 			options.TestingT = t
 			options.Randomize = time.Now().UnixNano()
@@ -158,7 +72,7 @@ func TestE2E(t *testing.T) {
 	}
 }
 
-func addGodogTestSuitesToE2ETestSuite(t *testing.T, e *E2ETestSuite) {
+func addGodogTestSuitesToE2ETestSuite(t *testing.T, e *e2e.TestSuiteGroup) {
 	t.Helper()
 
 	require.NoError(t, e.AddTestSuite(users.GetAPI()))
