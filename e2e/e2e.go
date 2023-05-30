@@ -122,7 +122,7 @@ func (e *TestSuiteGroup) After() error {
 	if err := e.generateSingleHTMLReport(); err != nil {
 		return err
 	}
-	if err := e.printReportLink(); err != nil {
+	if err := e.printReportFileLink(); err != nil {
 		return err
 	}
 	return nil
@@ -148,11 +148,11 @@ func (e *TestSuiteGroup) generateSingleHTMLReport() error {
 	return HTML.Generate()
 }
 
-func (e *TestSuiteGroup) printReportLink() error {
+func (e *TestSuiteGroup) printReportFileLink() error {
 	filePath, err := findLatestHTMLReportName(e.htmlReportFolderRootPath)
 	if err != nil {
 		if errors.Is(err, errReportNotFound) {
-			return nil
+			fmt.Println("No Reports, Please run e2e tests first!")
 		}
 		return err
 	}
@@ -204,7 +204,8 @@ func formatted(content string) string {
 	return b.String()
 }
 
-func openBrowser(url string) error {
+// TODO using Option pattern to control it with Flag - openWithBrowser
+func openReportWithDefaultBrowser(url string) error {
 	var err error
 	switch runtime.GOOS {
 	case "linux":
