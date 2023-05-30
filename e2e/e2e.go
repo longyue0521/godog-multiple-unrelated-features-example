@@ -1,16 +1,24 @@
 package e2e
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/cucumber/godog"
 	"gitlab.com/rodrigoodhin/gocure/models"
 	"gitlab.com/rodrigoodhin/gocure/pkg/gocure"
 	"gitlab.com/rodrigoodhin/gocure/report/html"
+)
+
+var (
+	errReportNotFound = errors.New("e2e: report not found")
 )
 
 type TestSuiteGroup struct {
@@ -111,7 +119,13 @@ func (e *TestSuiteGroup) createMissingSubdirectoriesInReportsFolder(dirs map[str
 }
 
 func (e *TestSuiteGroup) After() error {
-	return e.generateSingleHTMLReport()
+	if err := e.generateSingleHTMLReport(); err != nil {
+		return err
+	}
+	if err := e.printReportLink(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *TestSuiteGroup) generateSingleHTMLReport() error {
@@ -132,6 +146,77 @@ func (e *TestSuiteGroup) generateSingleHTMLReport() error {
 		},
 	}
 	return HTML.Generate()
+}
+
+func (e *TestSuiteGroup) printReportLink() error {
+	filePath, err := findLatestHTMLReportName(e.htmlReportFolderRootPath)
+	if err != nil {
+		if errors.Is(err, errReportNotFound) {
+			return nil
+		}
+		return err
+	}
+	content := fmt.Sprintf("Full Report - file://%s", filePath)
+	_, err = fmt.Println(formatted(content))
+	return err
+}
+
+func findLatestHTMLReportName(path string) (string, error) {
+	var name string
+	err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && name < d.Name() {
+			name = d.Name()
+			return nil
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	if name == "" {
+		return "", fmt.Errorf("%w : in %s", errReportNotFound, path)
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, path, name), nil
+}
+
+func formatted(content string) string {
+	width := len(content) + 2
+	symbol := "+"
+	var b bytes.Buffer
+	_, _ = b.WriteString("\n")
+	for i := 0; i < width; i++ {
+		_, _ = b.WriteString(symbol)
+	}
+	_, _ = b.WriteString("\n")
+	_, _ = b.WriteString(" " + content)
+	_, _ = b.WriteString("\n")
+	for i := 0; i < width; i++ {
+		_, _ = b.WriteString(symbol)
+	}
+	_, _ = b.WriteString("\n")
+	return b.String()
+}
+
+func openBrowser(url string) error {
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	return err
 }
 
 func (e *TestSuiteGroup) AddTestSuite(suite *godog.TestSuite) error {
