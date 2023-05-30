@@ -149,7 +149,7 @@ func (e *TestSuiteGroup) generateSingleHTMLReport() error {
 }
 
 func (e *TestSuiteGroup) printReportFileLink() error {
-	filePath, err := findLatestHTMLReportName(e.htmlReportFolderRootPath)
+	filePath, err := e.findLatestHTMLReportName(e.htmlReportFolderRootPath)
 	if err != nil {
 		if errors.Is(err, errReportNotFound) {
 			fmt.Println("No Reports, Please run e2e tests first!")
@@ -157,11 +157,11 @@ func (e *TestSuiteGroup) printReportFileLink() error {
 		return err
 	}
 	content := fmt.Sprintf("Full Report - file://%s", filePath)
-	_, err = fmt.Println(formatted(content))
+	_, err = fmt.Println(e.formatted(content))
 	return err
 }
 
-func findLatestHTMLReportName(path string) (string, error) {
+func (e *TestSuiteGroup) findLatestHTMLReportName(path string) (string, error) {
 	var name string
 	err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -186,7 +186,7 @@ func findLatestHTMLReportName(path string) (string, error) {
 	return filepath.Join(dir, path, name), nil
 }
 
-func formatted(content string) string {
+func (e *TestSuiteGroup) formatted(content string) string {
 	width := len(content) + 2
 	symbol := "+"
 	var b bytes.Buffer
@@ -205,7 +205,7 @@ func formatted(content string) string {
 }
 
 // TODO using Option pattern to control it with Flag - openWithBrowser
-func openReportWithDefaultBrowser(url string) error {
+func (e *TestSuiteGroup) openReportWithDefaultBrowser(url string) error {
 	var err error
 	switch runtime.GOOS {
 	case "linux":
