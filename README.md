@@ -15,7 +15,7 @@ import godog package used for writing acceptance tests or end-to-end tests.
 go get -u github.com/cucumber/godog@v0.12.6
 ```
 
-import gocure used for generating HTML report from above acceptance tests' json reports.
+import [gocure](https://rodrigoodhin.gitlab.io/gocure/#/) used for generating HTML report from above acceptance tests' json reports.
 ```shell
 go get -u gitlab.com/rodrigoodhin/gocure
 ```
