@@ -1,11 +1,8 @@
 package e2e_test
 
 import (
-	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/cucumber/godog"
 	"github.com/cucumber/godog/colors"
@@ -23,13 +20,13 @@ var (
 
 	defaultOptions = godog.Options{
 		Output: colors.Colored(os.Stdout),
-		Format: "progress",
 	}
-	testSuiteGroup = e2e.NewTestSuiteGroup(featFolderPath, jsonFolderPath, htmlFolderPath)
+	testSuiteGroup = e2e.NewTestSuiteGroup(featFolderPath, jsonFolderPath, htmlFolderPath, &defaultOptions)
 )
 
 func init() {
-	godog.BindCommandLineFlags("godog.", &defaultOptions) // godog v0.11.0 and later
+	godog.BindCommandLineFlags("godog.", &defaultOptions)                                                                             // godog v0.11.0 and later
+	pflag.StringSliceVar(&defaultOptions.Paths, "feature", []string{}, "list of relative path from features folder to feature files") // godog not support --godog.path features/xx.feature
 }
 
 func TestMain(m *testing.M) {
@@ -49,7 +46,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestE2E(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	// When using the "pretty" format, step definitions are generated for undefined steps,
 	// but if t.Parallel() is used, the output content will be printed in an unordered manner to the terminal.
 	addGodogTestSuitesToTestSuiteGroup(t, testSuiteGroup)
@@ -57,13 +54,8 @@ func TestE2E(t *testing.T) {
 	for name, suite := range testSuiteGroup.TestSuites() {
 		name, suite := name, suite
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			options := defaultOptions
-			options.TestingT = t
-			options.Randomize = time.Now().UnixNano()
-			options.Paths = []string{suite.Name}
-			options.Format = fmt.Sprintf("pretty,cucumber:%s.json", filepath.Join(jsonFolderPath, name))
-			suite.Options = &options
+			// t.Parallel()
+			suite.Options.TestingT = t
 			require.Equal(t, 0, suite.Run(), "0 - success\n1 - failed\n2 - command line usage error\n128 - or higher, os signal related error exit codes")
 		})
 	}

@@ -25,14 +25,16 @@ type TestSuiteGroup struct {
 	featFolderRootPath       string
 	reportsFolderRootPath    string
 	htmlReportFolderRootPath string
+	customizedOptions        *godog.Options
 	suites                   map[string]*godog.TestSuite
 }
 
-func NewTestSuiteGroup(featFolderRootPath, reportsFolderRootPath, htmlReportFolderRootPath string) *TestSuiteGroup {
+func NewTestSuiteGroup(featFolderRootPath, reportsFolderRootPath, htmlReportFolderRootPath string, options *godog.Options) *TestSuiteGroup {
 	return &TestSuiteGroup{
 		featFolderRootPath:       featFolderRootPath,
 		reportsFolderRootPath:    reportsFolderRootPath,
 		htmlReportFolderRootPath: htmlReportFolderRootPath,
+		customizedOptions:        options,
 		suites:                   make(map[string]*godog.TestSuite)}
 }
 
@@ -225,16 +227,54 @@ func (e *TestSuiteGroup) AddTestSuite(suite *godog.TestSuite) error {
 	if err != nil {
 		return fmt.Errorf("godog.TestSuite's name is wrong: %s", suite.Name)
 	}
-	rel, err := filepath.Rel(e.featFolderRootPath, suite.Name)
+	e.suites[e.readableName(suite.Name)] = suite
+	return e.setOptions(suite)
+}
+
+func (e *TestSuiteGroup) readableName(path string) string {
+	return strings.Replace(strings.TrimPrefix(path, e.featFolderRootPath), ".", "_", 1)
+}
+
+func (e *TestSuiteGroup) setOptions(suite *godog.TestSuite) error {
+	options := *e.customizedOptions
+	if options.Randomize == 0 {
+		options.Randomize = -1
+	}
+	options.Paths = []string{suite.Name}
+	format, err := e.rewriteCucumberReportPath(&options)
 	if err != nil {
 		return err
 	}
-	name := strings.TrimSuffix(rel, ".feature")
-	e.suites[name] = suite
+	options.Format = format
+	suite.Options = &options
 	return nil
 }
 
+func (e *TestSuiteGroup) rewriteCucumberReportPath(options *godog.Options) (string, error) {
+	var newFormats []string
+	for _, f := range strings.Split(options.Format, ",") {
+		if strings.HasPrefix(f, "cucumber:") {
+			relativePath, err := filepath.Rel(e.featFolderRootPath, strings.TrimSuffix(options.Paths[0], ".feature"))
+			if err != nil {
+				return "", err
+			}
+			f = fmt.Sprintf("cucumber:%s.json", filepath.Join(e.reportsFolderRootPath, relativePath))
+		}
+		newFormats = append(newFormats, f)
+	}
+	return strings.Join(newFormats, ","), nil
+}
+
 func (e *TestSuiteGroup) TestSuites() map[string]*godog.TestSuite {
-	// TODO use values of --godog.Paths to filter
-	return e.suites
+	suites := make(map[string]*godog.TestSuite)
+	for _, path := range e.customizedOptions.Paths {
+		name := e.readableName(path)
+		if suite, ok := e.suites[name]; ok {
+			suites[name] = suite
+		}
+	}
+	if len(e.customizedOptions.Paths) == 0 && len(suites) == 0 {
+		suites = e.suites
+	}
+	return suites
 }
