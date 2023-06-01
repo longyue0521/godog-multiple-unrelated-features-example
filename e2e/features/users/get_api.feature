@@ -2,7 +2,7 @@ Feature: users
   In order to use users api
   As an API user
   I need to be able to manage users
-
+  @wip
   Scenario: should get empty users
     When I send "GET" request to "/users"
     Then the response code should be 200
@@ -12,7 +12,7 @@ Feature: users
         "users": []
       }
       """
-
+  @new
   Scenario: should get users
     Given there are users:
       | username | email             |

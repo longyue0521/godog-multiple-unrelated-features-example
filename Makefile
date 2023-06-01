@@ -1,30 +1,26 @@
-.PHONY: e2e_all
-e2e_all:
-	@go test -race ./e2e
+COMMON_FLAGS=-count=1 -race $(if $(v), -v) ./e2e --godog.format=pretty,cucumber:report.json $(if $(t),--godog.tags=$(t))
+FEATURES_DIR=e2e/features
 
-.PHONY:e2e_with_progress_and_cucumber
-e2e_with_progress_and_cucumber:
-	@go test -race ./e2e --godog.format=progress,cucumber:report.json
-
-.PHONY:e2e_with_pretty_and_cucumber
-e2e_with_pretty_and_cucumber:
-	@go test -race ./e2e --godog.format=cucumber:report.json,pretty
-
-.PHONY: e2e_with_feature
-e2e_with_feature:
+.PHONY: e2e
+e2e:
 	@if [ -z "$(f)" ]; then \
-		echo "no features ..."; \
+		echo "No specified feature files. Running all e2e tests..."; \
+		go test $(COMMON_FLAGS); \
 	else \
-		test_result=0; \
-		IFS=',' read -ra features_arr <<< "$${f}"; \
+		IFS=',' read -ra features_arr <<< "$(f)"; \
+		feature_files=""; \
 		for feature_file in $${features_arr[@]}; do \
-			if [ ! -f "e2e/features/$${feature_file}.feature" ]; then \
-				printf "Error: e2e/features/%s.feature does not exist\n" "$${feature_file}"; \
-				test_result=1; \
+			if [ ! -f "$(FEATURES_DIR)/$${feature_file}.feature" ]; then \
+				printf "Error: $(FEATURES_DIR)/%s.feature does not exist\n" "$${feature_file}"; \
+				exit 1; \
+			else \
+				feature_files+="features/$${feature_file}.feature,"; \
 			fi; \
 		done; \
-		if [ $$test_result -eq 0 ]; then \
-			go test -race ./e2e --godog.format=pretty,cucumber:report.json --feature $$(printf 'features/%s.feature ' $${features_arr[@]}); \
+		if [ -n "$${feature_files}" ]; then \
+			feature_files="$${feature_files%?}"; \
+			ALL_FLAGS="$(COMMON_FLAGS) --feature $$feature_files"; \
+			echo "Running e2e tests for feature files: $$feature_files"; \
+			go test $$ALL_FLAGS; \
 		fi; \
 	fi
-
