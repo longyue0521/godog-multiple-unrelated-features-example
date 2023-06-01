@@ -1,3 +1,9 @@
+.PHONY: setup
+setup:
+	@mkdir -m 0755 -p e2e/features && echo "Created e2e/features directory"
+	@mkdir -m 0755 -p e2e/reports/json && echo "Created e2e/reports/json directory"
+	@mkdir -m 0755 -p e2e/reports/html && echo "Created e2e/reports/html directory"
+
 COMMON_FLAGS=-count=1 -race $(if $(v), -v) ./e2e --godog.format=pretty,cucumber:report.json $(if $(t),--godog.tags=$(t))
 FEATURES_DIR=e2e/features
 
